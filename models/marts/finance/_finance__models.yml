@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: fct_daily_revenue
+    description: Daily orders, GMV, discounts, refunds, and net revenue.
+    columns:
+      - name: order_date
+        data_tests: [unique, not_null]
+      - name: net_revenue
+        data_tests: [not_negative]

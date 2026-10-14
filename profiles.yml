@@ -1,0 +1,24 @@
+# Profiles live in the repo so CI and new contributors can run with zero setup.
+# Use:  dbt build --profiles-dir .            (local DuckDB, default)
+#       dbt build --profiles-dir . --target prod   (Snowflake, credentials from env vars)
+ecommerce_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ecommerce.duckdb
+      threads: 4
+    ci:
+      type: duckdb
+      path: ci.duckdb
+      threads: 4
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'TRANSFORMING') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'ANALYTICS') }}"
+      schema: dbt
+      threads: 8

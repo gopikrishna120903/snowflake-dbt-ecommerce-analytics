@@ -1,0 +1,41 @@
+name: ecommerce_analytics
+version: "1.0.0"
+config-version: 2
+profile: ecommerce_analytics
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+analysis-paths: ["analyses"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  raw_schema: raw              # where the loader (e.g. Fivetran) lands source tables
+  incremental_lookback_days: 3 # reprocess late-arriving order updates
+
+seeds:
+  ecommerce_analytics:
+    +schema: raw
+    +column_types:
+      created_at: timestamp
+      updated_at: timestamp
+      ordered_at: timestamp
+
+models:
+  ecommerce_analytics:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+      core:
+        +schema: core
+      finance:
+        +schema: finance
+      marketing:
+        +schema: marketing

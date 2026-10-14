@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: stg_shop__customers
+    description: One row per customer (latest version), with cleaned email and country.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: email
+        data_tests:
+          - not_null
+          - unique
+      - name: country_code
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["US", "CA", "GB", "AU"]
+
+  - name: stg_shop__orders
+    description: One row per order with normalized status and dollar amounts.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_shop__customers')
+                field: customer_id
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["placed", "shipped", "completed", "returned", "cancelled"]
+      - name: discount_amount
+        data_tests: [not_negative]
+
+  - name: stg_shop__order_items
+    columns:
+      - name: order_item_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_shop__orders')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_shop__products')
+                field: product_id
+      - name: quantity
+        data_tests: [not_negative]
+
+  - name: stg_shop__products
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+
+  - name: stg_shop__payments
+    description: Every payment attempt, including failures and refunds (refunds are negative).
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+      - name: payment_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["success", "failed", "refunded"]
+      - name: payment_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["credit_card", "paypal", "gift_card", "bank_transfer"]

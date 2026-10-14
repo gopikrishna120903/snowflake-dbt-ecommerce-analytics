@@ -1,0 +1,118 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: >
+      One row per order with item totals, payments, refunds, and net revenue.
+      Incremental: merges changed orders (by updated_at, with a lookback window).
+    config:
+      contract:
+        enforced: false
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: order_total
+        data_tests: [not_negative]
+      - name: net_revenue
+        data_tests: [not_negative]
+      - name: customer_order_number
+        data_tests: [not_null]
+
+  - name: fct_order_items
+    description: One row per order line with cost and gross margin.
+    columns:
+      - name: order_item_id
+        data_tests: [unique, not_null]
+
+  - name: dim_customers
+    description: One row per customer with lifetime metrics and a value segment.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: customer_segment
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["prospect", "one_time", "repeat", "vip"]
+      - name: lifetime_value
+        data_tests: [not_negative]
+
+  - name: dim_products
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+
+unit_tests:
+  - name: test_customer_segmentation_rules
+    description: Segment boundaries for prospects, one-time, repeat, and VIP customers.
+    model: dim_customers
+    overrides:
+      vars:
+        as_of_date: "2025-12-31"
+    given:
+      - input: ref('stg_shop__customers')
+        rows:
+          - {customer_id: 1, full_name: "No Orders", email: "a@x.com", country_code: "US", acquisition_channel: "organic", created_at: "2025-01-01 00:00:00"}
+          - {customer_id: 2, full_name: "One Order", email: "b@x.com", country_code: "US", acquisition_channel: "organic", created_at: "2025-01-01 00:00:00"}
+          - {customer_id: 3, full_name: "Two Orders", email: "c@x.com", country_code: "US", acquisition_channel: "organic", created_at: "2025-01-01 00:00:00"}
+          - {customer_id: 4, full_name: "Big Spender", email: "d@x.com", country_code: "US", acquisition_channel: "organic", created_at: "2025-01-01 00:00:00"}
+          - {customer_id: 5, full_name: "Many Small", email: "e@x.com", country_code: "US", acquisition_channel: "organic", created_at: "2025-01-01 00:00:00"}
+      - input: ref('fct_orders')
+        rows:
+          - {customer_id: 2, ordered_at: "2025-03-01 10:00:00", is_revenue_order: true, net_revenue: 50, order_status: "completed"}
+          - {customer_id: 3, ordered_at: "2025-03-01 10:00:00", is_revenue_order: true, net_revenue: 40, order_status: "completed"}
+          - {customer_id: 3, ordered_at: "2025-04-01 10:00:00", is_revenue_order: true, net_revenue: 60, order_status: "completed"}
+          - {customer_id: 4, ordered_at: "2025-01-10 10:00:00", is_revenue_order: true, net_revenue: 200, order_status: "completed"}
+          - {customer_id: 4, ordered_at: "2025-02-10 10:00:00", is_revenue_order: true, net_revenue: 200, order_status: "completed"}
+          - {customer_id: 4, ordered_at: "2025-03-10 10:00:00", is_revenue_order: true, net_revenue: 200, order_status: "completed"}
+          - {customer_id: 4, ordered_at: "2025-04-10 10:00:00", is_revenue_order: true, net_revenue: 200, order_status: "completed"}
+          - {customer_id: 4, ordered_at: "2025-12-01 10:00:00", is_revenue_order: true, net_revenue: 200, order_status: "completed"}
+          - {customer_id: 5, ordered_at: "2025-01-10 10:00:00", is_revenue_order: true, net_revenue: 20, order_status: "completed"}
+          - {customer_id: 5, ordered_at: "2025-02-10 10:00:00", is_revenue_order: true, net_revenue: 20, order_status: "completed"}
+          - {customer_id: 5, ordered_at: "2025-03-10 10:00:00", is_revenue_order: true, net_revenue: 20, order_status: "completed"}
+          - {customer_id: 5, ordered_at: "2025-04-10 10:00:00", is_revenue_order: true, net_revenue: 20, order_status: "completed"}
+          - {customer_id: 5, ordered_at: "2025-05-10 10:00:00", is_revenue_order: true, net_revenue: 20, order_status: "completed"}
+    expect:
+      rows:
+        - {customer_id: 1, customer_segment: "prospect", lifetime_orders: 0, days_since_last_order: null}
+        - {customer_id: 2, customer_segment: "one_time", lifetime_orders: 1, days_since_last_order: 305}
+        - {customer_id: 3, customer_segment: "repeat", lifetime_orders: 2, days_since_last_order: 274}
+        - {customer_id: 4, customer_segment: "vip", lifetime_orders: 5, days_since_last_order: 30}
+        - {customer_id: 5, customer_segment: "repeat", lifetime_orders: 5, days_since_last_order: 235}
+
+  - name: test_order_net_revenue_handles_refunds_and_split_payments
+    description: Net revenue nets out refunds; split payments add up; order numbers follow order time.
+    model: fct_orders
+    overrides:
+      macros:
+        is_incremental: false
+    given:
+      - input: ref('stg_shop__orders')
+        rows:
+          - {order_id: 10, customer_id: 1, ordered_at: "2025-01-01 09:00:00", order_date: "2025-01-01", order_status: "completed", discount_amount: 10, shipping_amount: 0, updated_at: "2025-01-02 00:00:00"}
+          - {order_id: 11, customer_id: 1, ordered_at: "2025-01-05 09:00:00", order_date: "2025-01-05", order_status: "returned", discount_amount: 0, shipping_amount: 7.99, updated_at: "2025-01-09 00:00:00"}
+      - input: ref('int_orders__item_totals')
+        format: sql
+        rows: |
+          select 10 as order_id, 2 as line_count, 3 as units, cast(110 as decimal(16,2)) as items_subtotal
+          union all
+          select 11, 1, 1, cast(42.01 as decimal(16,2))
+      - input: ref('int_orders__payments')
+        format: sql
+        rows: |
+          select 10 as order_id, cast(100 as decimal(16,2)) as amount_collected, cast(0 as decimal(16,2)) as amount_refunded,
+                 cast(75 as decimal(16,2)) as credit_card_amount, cast(0 as decimal(16,2)) as paypal_amount,
+                 cast(25 as decimal(16,2)) as gift_card_amount, cast(0 as decimal(16,2)) as bank_transfer_amount, 1 as failed_attempts
+          union all
+          select 11, cast(50 as decimal(16,2)), cast(50 as decimal(16,2)), cast(50 as decimal(16,2)), cast(0 as decimal(16,2)),
+                 cast(0 as decimal(16,2)), cast(0 as decimal(16,2)), 0
+    expect:
+      rows:
+        - {order_id: 10, order_total: 100, net_revenue: 100, is_revenue_order: true, customer_order_number: 1}
+        - {order_id: 11, order_total: 50, net_revenue: 0, is_revenue_order: false, customer_order_number: 2}

@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Parse and compile
+        run: dbt parse --profiles-dir . --target ci
+      - name: Load raw data (seeds)
+        run: dbt seed --profiles-dir . --target ci
+      - name: Build models, snapshots, and run all tests
+        run: dbt build --profiles-dir . --target ci --exclude resource_type:seed
+      - name: Run again to exercise the incremental path
+        run: dbt build --profiles-dir . --target ci --select fct_orders+ --exclude resource_type:seed
+      - name: Generate docs
+        run: dbt docs generate --profiles-dir . --target ci

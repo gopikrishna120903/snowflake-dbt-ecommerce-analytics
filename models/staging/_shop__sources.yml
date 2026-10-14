@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: shop
+    description: Raw tables from the e-commerce platform, landed by the loader without changes.
+    schema: "{{ var('raw_schema') }}"
+    loaded_at_field: updated_at
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    tables:
+      - name: raw_customers
+        description: One row per customer change. Updates arrive as new rows, so customers can repeat.
+        freshness: null   # static sample data; freshness applies in production
+      - name: raw_orders
+        freshness: null
+        columns:
+          - name: order_id
+            data_tests: [unique, not_null]
+      - name: raw_order_items
+        loaded_at_field: null
+        freshness: null
+      - name: raw_products
+        loaded_at_field: null
+        freshness: null
+      - name: raw_payments
+        loaded_at_field: created_at
+        freshness: null

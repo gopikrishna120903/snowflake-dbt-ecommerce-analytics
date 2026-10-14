@@ -1,0 +1,9 @@
+snapshots:
+  - name: customers_snapshot
+    relation: ref('stg_shop__customers')
+    description: SCD Type 2 history of customer attributes (country, email, channel).
+    config:
+      schema: snapshots
+      unique_key: customer_id
+      strategy: timestamp
+      updated_at: updated_at

@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: customer_cohort_retention
+    description: Monthly cohort retention curve (cohort = month of first purchase).
+    data_tests:
+      - dbt_utils_free_unique_combination:
+          arguments:
+            columns: ["cohort_month", "months_since_first_order"]
+    columns:
+      - name: retention_rate
+        data_tests: [not_negative]
+
+  - name: channel_performance
+    description: Purchase rate and lifetime value by acquisition channel.
+    columns:
+      - name: acquisition_channel
+        data_tests: [unique, not_null]
