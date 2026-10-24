@@ -16,3 +16,12 @@ models:
     columns:
       - name: acquisition_channel
         data_tests: [unique, not_null]
+
+
+  - name: category_return_rates
+    description: Share of units returned in each product category.
+    columns:
+      - name: category
+        data_tests: [unique, not_null]
+      - name: return_rate
+        data_tests: [not_negative]
