@@ -4,6 +4,10 @@
 
 An analytics-engineering project in **dbt** that turns raw e-commerce data (customers, orders, order items, products, payments) into tested, documented marts for finance and marketing. It's written to run on **Snowflake** in production and on **DuckDB** locally and in CI, so anyone can clone it and run the full build in under a minute with no cloud account.
 
+## Why I built this
+
+Most of my work has been on the engineering side, getting data into the lakehouse reliably. I wanted to go one step further and build the layer analysts actually use: clean, tested models with clear business logic. dbt is a good fit for that because the SQL, the tests, and the documentation all live together in version control. I picked e-commerce because it has the problems that make modeling interesting: duplicate customer records, refunds, split payments, and orders that keep changing after they're placed.
+
 ## Lineage
 
 ```mermaid
@@ -41,6 +45,10 @@ flowchart LR
 | **Messy-source handling** | Deduplicates repeated customer rows, normalizes status casing (`COMPLETED` → `completed`), trims and lowercases emails, separates failed payments and refunds |
 | **Testing** | 47 data tests, 2 unit tests, and 2 reconciliation tests (see below) |
 | **Environments** | `dev` and `ci` on DuckDB, `prod` on Snowflake with credentials from environment variables |
+
+## Why fct_orders is incremental
+
+Rebuilding every order on every run gets slow and expensive as the table grows, so `fct_orders` only processes orders whose `updated_at` changed since the last run. The catch is that orders keep changing after they're placed: they ship, get returned, or get refunded days later, and sometimes those updates arrive late. To handle that, each run reaches back 3 extra days (`incremental_lookback_days`) and reprocesses anything in that window, matching rows on `order_id` so nothing is duplicated. That costs a little extra work per run but avoids silently missing late changes. The customer order number is calculated over all orders, not just the incremental batch, so it stays correct. If the logic ever changes, `dbt build --full-refresh` rebuilds the table from scratch.
 
 ## Tests
 
