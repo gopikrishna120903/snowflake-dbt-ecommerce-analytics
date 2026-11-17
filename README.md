@@ -6,7 +6,7 @@ An analytics-engineering project in **dbt** that turns raw e-commerce data (cust
 
 ## Why I built this
 
-Most of my work has been on the engineering side, getting data into the lakehouse reliably. I wanted to go one step further and build the layer analysts actually use: clean, tested models with clear business logic. dbt is a good fit for that because the SQL, the tests, and the documentation all live together in version control. I picked e-commerce because it has the problems that make modeling interesting: duplicate customer records, refunds, split payments, and orders that keep changing after they're placed.
+I use dbt at work alongside Databricks, but that code lives in private repositories I can't share, so I built this as a public example of how I structure and test models. dbt suits the modeling layer because the SQL, the tests, and the documentation all live together in version control. I picked e-commerce because it has the problems that make modeling interesting: duplicate customer records, refunds, split payments, and orders that keep changing after they're placed.
 
 ## Lineage
 
